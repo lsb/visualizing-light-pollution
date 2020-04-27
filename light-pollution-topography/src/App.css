@@ -1,0 +1,29 @@
+.App {
+  text-align: center;
+}
+#colophon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  background-color: beige;
+}
+
+#tweaks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  background-color: bisque;
+}
+#legend { display: none }
+
+body {
+  font:400 18px/1.5 Roboto;
+  color: maroon;
+}
+
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;src:url(https://leebutterman.com/assets/roboto-slab.ttf) format("truetype")}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;src:url(https://leebutterman.com/assets/roboto-slab-bold.ttf) format("truetype")}
+@font-face{font-family:'Roboto Thin';font-style:normal;font-weight:100;src:url(https://leebutterman.com/assets/roboto-thin.ttf) format("truetype")}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;src:url(https://leebutterman.com/assets/roboto-italic.ttf) format("truetype")}
