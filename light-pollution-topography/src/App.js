@@ -3,6 +3,7 @@ import './App.css';
 import DeckGL from '@deck.gl/react';
 import { TerrainLayer, TileLayer, } from '@deck.gl/geo-layers';
 import { BitmapLayer,  } from '@deck.gl/layers';
+import {DirectionalLight, LightingEffect} from '@deck.gl/core';
 
 const bitmapLayerDefaults = ({
   wrapLongitude: true,
@@ -37,43 +38,40 @@ class App extends React.Component {
     super(props)
     this.state = {
       viz: "bumpy-light",
-      viewState: {longitude: -122.4, latitude: 37.7, zoom: 6, pitch: 50, bearing: 0, maxZoom: 10},
+      viewState: {longitude: -122.4, latitude: 37.7, zoom: 6, pitch: 0, bearing: 0, maxZoom: 10},
       isDrone: true,
-      fullLoopDuration: 200,
-      pitchChange: 0.5,
-      bearingChange: 3,
-      tickSize: 5,
+      fullLoopDuration: 234,
+      tickSize: 10,
+      d1x: 0, // -1
+      d1y: 5, // -3
+      d1z: -13, // -1
+      d2x: 1,
+      d2y: 8,
+      d2z: -2.5,
     };
   }
   componentDidMount() {
     setTimeout(() => this.startAnimating(), 1000);
   }
   async startAnimating() {
-    const {viewState: {pitch, bearing}, fullLoopDuration, pitchChange, bearingChange, tickSize} = this.state;
-    if((typeof pitch) !== "number" || (typeof bearing) !== "number") {
-      console.log({"deckgl appearance": "loading", pitch, bearing, pitchChange, time: Date.now()});
+    const {fullLoopDuration, tickSize} = this.state;
+    if((typeof fullLoopDuration) !== "number" || (typeof tickSize) !== "number") {
+      console.log({"deckgl appearance": "loading", fullLoopDuration, tickSize, time: Date.now()});
       setTimeout(() => this.startAnimating(), 0);
     } else {
-      // for me, on my graphics card, the map view was glitching out (blank white flashes) with transitions longer than ~10ms
       let i = 0;
       do {
         const raf = await new Promise(resolve => requestAnimationFrame(resolve));
         const delay = await new Promise(resolve => setTimeout(resolve, tickSize));
-        const eased = Math.sin(Math.PI * 2 * i / fullLoopDuration);
-        const eased2x = Math.sin(Math.PI * 2 * 2 * i / fullLoopDuration);
-        this.setState({viewState: {
-          ...this.state.viewState,
-          bearing: bearing + eased * bearingChange,
-          pitch: pitch + eased2x * pitchChange,
-          transitionDuration: tickSize,
-          onTransitionInterrupt: () => this.setState({isDrone: false}),
-        }})
+        const easedsin = Math.sin(Math.PI * 2 * i / fullLoopDuration) * 5;
+        const easedcos = Math.cos(Math.PI * 2 * i / fullLoopDuration) * 5;
+        this.setState({d1x: easedsin, d1y: easedcos});
       } while (i++ < fullLoopDuration && this.state.isDrone);
       if(this.state.isDrone) { this.startAnimating() }
     }
   }
   render() {
-    const {viz} = this.state;
+    const {viz, d1x, d1y, d1z, d2x, d2y, d2z} = this.state;
     const smog = new TileLayer({
       ...bitmapLayerDefaults,
       data: './tiles/greys-{z}-{x}-{y}.png',
@@ -123,62 +121,45 @@ class App extends React.Component {
       "hazy-gouache": [watercolor, smog],
     })
     const layers = layerMapping[viz];
+    const directionalLight = [new DirectionalLight({color: [255,255,255], intensity: 0.25, _shadow: true, direction: [d1x,d1y,d1z]}), new DirectionalLight({color: [255,255,255], intensity: 0.9, direction: [d2x,d2y,d2z]})];
+    const effects = [new LightingEffect({a: directionalLight[0], b: directionalLight[1]})];//, new LightingEffect({directionalLight: directionalLight[1]}) ]
     return (
       <div>
         <div>
-          <DeckGL viewState={this.state.viewState} controller={true} layers={layers} id={"maincanvas"} onViewStateChange={({viewState}) => this.setState({viewState})} />
+          <DeckGL viewState={this.state.viewState} controller={true} layers={layers} effects={effects} id={"maincanvas"} onViewStateChange={({viewState}) => this.setState({viewState})} />
         </div>
         <div className="tweaks">
           <div id="colophon">
-            © Lee Butterman 2020. Made in Oakland, California.<br/>
-            Map tiles by Stamen Design, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>.<br/>
-            Map data by OpenStreetMap, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY SA 3.0</a><br/>
-            Light pollution from <a href="https://dx.doi.org/10.1126/sciadv.1600377">Falchi et al</a>, <a href="https://doi.org/10.5880/GFZ.1.4.2016.001">World Atlas 2015</a>, <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY NC 4.0</a>.<br/>
-            <div id="legend"><hr/>Light pollution legend (as haze):<br/><span id="no-human-light">no human light</span>/<span id="horizon-glow">horizon glow</span>/<span id="no-milky-way">no milky way</span>/<span id="mesopic">colors visible</span></div>
+            © Lee Butterman 2020. Made in Oakland CA.
+            <span className="tiny-credits">
+              Map tiles <a href="https://creativecommons.org/licenses/by/3.0/">by</a> Stamen Design.
+              Map data <a href="https://creativecommons.org/licenses/by-sa/3.0/">by</a> OpenStreetMap.
+              Light pollution <a href="https://creativecommons.org/licenses/by-nc/4.0/">by</a> <a href="https://dx.doi.org/10.1126/sciadv.1600377">Falchi et al</a>, <a href="https://doi.org/10.5880/GFZ.1.4.2016.001">World Atlas 2015</a>.
+            </span>
+            {/* <div>
+              d1x <input type="range" min="-200" max="200" step="0.5" value={d1x} onChange={e => this.setState({d1x: e.target.value * 1})} /> {d1x} <br/>
+              d1y <input type="range" min="-200" max="200" step="0.5" value={d1y} onChange={e => this.setState({d1y: e.target.value * 1})} /> {d1y} <br/>
+              d1z <input type="range" min="-200" max="200" step="0.5" value={d1z} onChange={e => this.setState({d1z: e.target.value * 1})} /> {d1z} <br/>
+              d2x <input type="range" min="-200" max="200" step="0.5" value={d2x} onChange={e => this.setState({d2x: e.target.value * 1})} /> {d2x} <br/>
+              d2y <input type="range" min="-200" max="200" step="0.5" value={d2y} onChange={e => this.setState({d2y: e.target.value * 1})} /> {d2y} <br/>
+              d2z <input type="range" min="-200" max="200" step="0.5" value={d2z} onChange={e => this.setState({d2z: e.target.value * 1})} /> {d2z} <br/>
+            </div> */}
+            {/* <div id="legend"><hr/>Light pollution legend (as haze):<br/><span id="no-human-light">no human light</span>/<span id="horizon-glow">horizon glow</span>/<span id="no-milky-way">no milky way</span>/<span id="mesopic">colors visible</span></div> */}
           </div>
           <div id="tweaks">
-            View light pollution as:<br/>
-            <form>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="bumpy-light" checked={viz === "bumpy-light"} onChange={e => this.setState({viz: e.target.value})} />
-                  topography, on a white/blue world
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="bumpy-terrain" checked={viz === "bumpy-terrain"} onChange={e => this.setState({viz: e.target.value})} />
-                  topography, on a terrain map world
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="bumpy-watercolor" checked={viz === "bumpy-watercolor"} onChange={e => this.setState({viz: e.target.value})} />
-                  topography, on a watercolor world
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="hazy-terrain" checked={viz === "hazy-terrain"} onChange={e => this.setState({viz: e.target.value})} />
-                  haze, on a terrain map world
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="hazy-watercolor" checked={viz === "hazy-watercolor"} onChange={e => this.setState({viz: e.target.value})} />
-                  haze, on a watercolor world with labels
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input type="radio" name="viz" value="hazy-gouache" checked={viz === "hazy-gouache"} onChange={e => this.setState({viz: e.target.value})} />
-                  haze, on a watercolor world
-                </label>
-              </div>
-            </form>
+            View light pollution as:
+            <select id="viz-style" onChange={e => this.setState({viz: e.target.value})} value={viz}>
+              <option value="bumpy-light">topography, on a white/blue world</option>
+              <option value="bumpy-terrain">topography, on a terrain map world</option>
+              <option value="bumpy-watercolor">topography, on a watercolor world</option>
+              <option value="hazy-terrain">haze, on a terrain map world</option>
+              <option value="hazy-watercolor">haze, on a watercolor world with labels</option>
+              <option value="hazy-gouache">haze, on a watercolor world</option>
+            </select>
+            &nbsp; &nbsp;
             <label>
               <input type="checkbox" checked={this.state.isDrone} onChange={e => { this.setState({isDrone: e.target.checked}); if(!this.state.isDrone) this.startAnimating() } } />
-              drone hover
+              spotlight circling&nbsp;
             </label>
           </div>
         </div>
